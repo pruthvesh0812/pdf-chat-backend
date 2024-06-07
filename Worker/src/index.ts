@@ -1,19 +1,51 @@
 
+import { getPineconeClient } from './lib/PineconeClient';
+import { getConversationalRetrievalChain } from './lib/RetrievalChain';
 import { client, redisConnect } from './redisConfig';
+import { HumanMessage, AIMessage } from "@langchain/core/messages";
 
 redisConnect();
 
-async function generateAiResponse(question:any) {
+export type messageType = {
+    type:string,
+    text:string,
+    timestamp:number,
+}
+
+async function generateAiResponse({ userId, pdfId, question, messages}:{userId:string,pdfId:string,question:string,messages: messageType[]}) {
     console.log("this is ai response:", question)
-    await client.publish("AiResponsePubSub", JSON.stringify({...question,...{ans:"this is my answer Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book. It has survived not only five centuries, but also the leap into electronic typesetting, remaining essentially unchanged. It was popularised in the 1960s with the release of Letraset sheets containing Lorem Ipsum passages, and more recently with desktop publishing software like Aldus PageMaker including versions of Lorem Ipsum"}}))
+
+    const chatHistory = messages.map(message => {
+        if (message.type == "AI") {
+          return new AIMessage(message.text)
+        }
+        else {
+          return new HumanMessage(message.text)
+        }
+      })
+
+    try{
+
+        const pineconeClient = await getPineconeClient()
+        const conversationalRetrievalChain = await getConversationalRetrievalChain(pineconeClient, userId, pdfId)
+        const result = await conversationalRetrievalChain.invoke({
+          chat_history: chatHistory,
+          input: question,
+        });
+        console.log(result,"result")
+        await client.publish(`${pdfId}`, JSON.stringify({result:result.answer}))
+    }
+    catch(err){
+        console.log("Error while connecting to openAi", err)
+    }
 }
 
 async function startWorker(){
     try{
         while(true){
             try{
-                const question = await client.brPop("Questions",0);
-                await generateAiResponse(question)
+                const userRequest = await client.brPop("Questions",0);
+                await generateAiResponse(JSON.parse(userRequest?.element!))
             }
             catch(err){
                 console.log("error process request", err)

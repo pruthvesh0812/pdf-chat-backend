@@ -8,11 +8,14 @@ import { pdfs } from "../models/Pdf";
 let NAMESPACE: string = ""
 let PDFID: string = ""
 
+import dotenv from 'dotenv'
+dotenv.config()
 
 export async function getVectorStore(client: Pinecone, userId: string, pdfId: string) {
   
         const embeddings = new OpenAIEmbeddings();
-        const index = client.Index(process.env.PINECONE_INDEX_NAME!)
+        console.log(process.env.PINECONE_INDEX_NAME,"index")
+        const index = client.Index("pdf-chat-index-1")
         connectMongoDb()
         try {
             // for first question

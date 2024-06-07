@@ -1,5 +1,6 @@
 import mongoose from 'mongoose'
-
+import dotenv from 'dotenv'
+dotenv.config()
 let IS_CONNECTED:boolean = false;
 
 export const connectMongoDb = async () =>{

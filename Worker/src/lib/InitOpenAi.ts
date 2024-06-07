@@ -1,3 +1,6 @@
 import { ChatOpenAI } from "@langchain/openai";
+import dotenv from 'dotenv'
+dotenv.config()
 
-export const chatModel = new ChatOpenAI({});
+const openAIApiKey = process.env.OPENAI_API_KEY;
+export const chatModel = new ChatOpenAI({openAIApiKey});

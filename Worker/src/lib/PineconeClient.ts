@@ -1,5 +1,6 @@
 import { Pinecone } from '@pinecone-database/pinecone';
-
+import dotenv from 'dotenv'
+dotenv.config()
 let isIndexCreated: boolean = false
 
 const pc = new Pinecone({
@@ -37,6 +38,7 @@ export const getPineconeClient = async ():Promise<Pinecone> => {
       currentIndexes.indexes?.forEach(indexModal =>{
         if(indexModal.name == process.env.PINECONE_INDEX_NAME! ){
           isIndexCreated = true;
+          console.log("pinecone exists")
         }
       })
     

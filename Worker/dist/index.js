@@ -9,12 +9,35 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+const PineconeClient_1 = require("./lib/PineconeClient");
+const RetrievalChain_1 = require("./lib/RetrievalChain");
 const redisConfig_1 = require("./redisConfig");
+const messages_1 = require("@langchain/core/messages");
 (0, redisConfig_1.redisConnect)();
-function generateAiResponse(question) {
+function generateAiResponse({ userId, pdfId, question, messages }) {
     return __awaiter(this, void 0, void 0, function* () {
         console.log("this is ai response:", question);
-        yield redisConfig_1.client.publish("AiResponsePubSub", JSON.stringify(Object.assign(Object.assign({}, question), { ans: "this is my answer Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book. It has survived not only five centuries, but also the leap into electronic typesetting, remaining essentially unchanged. It was popularised in the 1960s with the release of Letraset sheets containing Lorem Ipsum passages, and more recently with desktop publishing software like Aldus PageMaker including versions of Lorem Ipsum" })));
+        const chatHistory = messages.map(message => {
+            if (message.type == "AI") {
+                return new messages_1.AIMessage(message.text);
+            }
+            else {
+                return new messages_1.HumanMessage(message.text);
+            }
+        });
+        try {
+            const pineconeClient = yield (0, PineconeClient_1.getPineconeClient)();
+            const conversationalRetrievalChain = yield (0, RetrievalChain_1.getConversationalRetrievalChain)(pineconeClient, userId, pdfId);
+            const result = yield conversationalRetrievalChain.invoke({
+                chat_history: chatHistory,
+                input: question,
+            });
+            console.log(result, "result");
+            yield redisConfig_1.client.publish(`${pdfId}`, JSON.stringify({ result: result.answer }));
+        }
+        catch (err) {
+            console.log("Error while connecting to openAi", err);
+        }
     });
 }
 function startWorker() {
@@ -22,8 +45,8 @@ function startWorker() {
         try {
             while (true) {
                 try {
-                    const question = yield redisConfig_1.client.brPop("Questions", 0);
-                    yield generateAiResponse(question);
+                    const userRequest = yield redisConfig_1.client.brPop("Questions", 0);
+                    yield generateAiResponse(JSON.parse(userRequest === null || userRequest === void 0 ? void 0 : userRequest.element));
                 }
                 catch (err) {
                     console.log("error process request", err);
