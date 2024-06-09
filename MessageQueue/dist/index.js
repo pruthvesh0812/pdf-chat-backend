@@ -18,7 +18,8 @@ const redisConfig_1 = require("./redisConfig");
 const app = (0, express_1.default)();
 app.use(express_1.default.json());
 app.use((0, cors_1.default)({
-    origin: "*"
+    origin: "*",
+    credentials: true
 }));
 const PORT = 5001;
 app.get("/chat/:chatId", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
@@ -32,24 +33,35 @@ app.get("/chat/:chatId", (req, res) => __awaiter(void 0, void 0, void 0, functio
             'Cache-Control': 'no-cache',
             'Connection': 'keep-alive',
         });
+        res.flushHeaders();
+
         redisConfig_1.PUBSUBClient.SUBSCRIBE(`${chatId}`, (message, channel) => {
             console.log(message, "message from ai", channel);
             // Send the event
-            res.write(JSON.stringify(message));
-            // res.end(); // this is to close the sse connection   
+            res.write(`data:${JSON.stringify(message)}\n\n`);
+            // this is to close the sse connection   
         });
+        
+        res.on("close", ()=>{
+            res.end();
+        })
     }
     catch (err) {
         console.error("Redis error:", err);
         res.status(500).send("Failed generate response");
     }
 }));
-// app.post("/chat/:chatId",async (req:Request,res:Response)=>{
+// app.post("/api/:chatId",async (req:Request,res:Response)=>{
 //     const {chatId} = req.params;
+//     const {question,messages,userId}= req.body
 //     console.log(chatId," => chatId")
 //     try{
+//         // console.log(req.cookies)
+//         // const userId = req.cookies
 //         // message queue
-//         await MQClient.lPush("Questions", JSON.stringify({chatId}))
+//         // await MQClient.lPush("Questions", JSON.stringify({chatId}))
+//         console.log("here")
+//         await MQClient.lPush("Questions", JSON.stringify({ userId, chatId,question,messages}))
 //         // store to db
 //         res.status(200).json({message:"response pending"})
 //     }
